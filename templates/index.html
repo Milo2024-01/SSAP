@@ -159,9 +159,9 @@ Example:
 GE111
 GE112
 COSC 50
-DCIT 21"></textarea>
+DCIT 21" oninput="validateInput()"></textarea>
                 <div class="help-text">
-                    <i class="fas fa-info-circle"></i> Enter the course codes of subjects you have already passed. Leave empty to see all subjects without prerequisites.
+                    <i class="fas fa-info-circle"></i> Enter the course codes of subjects you have already passed to see available subjects for the next term.
                 </div>
             </div>
             
@@ -172,19 +172,19 @@ DCIT 21"></textarea>
                         <label><i class="fas fa-calendar"></i> Year</label>
                         <select id="filter-year" onchange="filterCourses()">
                             <option value="">All Years</option>
-                            <option value="1">1st Year</option>
-                            <option value="2">2nd Year</option>
-                            <option value="3">3rd Year</option>
-                            <option value="4">4th Year</option>
+                            <option value="First Year">1st Year</option>
+                            <option value="Second Year">2nd Year</option>
+                            <option value="Third Year">3rd Year</option>
+                            <option value="Fourth Year">4th Year</option>
                         </select>
                     </div>
                     <div class="filter-group">
                         <label><i class="fas fa-calendar-alt"></i> Term</label>
                         <select id="filter-term" onchange="filterCourses()">
                             <option value="">All Terms</option>
-                            <option value="1st">1st Term</option>
-                            <option value="2nd">2nd Term</option>
-                            <option value="3rd">3rd Term</option>
+                            <option value="FIRST TRIMESTER">1st Term</option>
+                            <option value="SECOND TRIMESTER">2nd Term</option>
+                            <option value="THIRD TRIMESTER">3rd Term</option>
                         </select>
                     </div>
                     <div class="filter-group">
@@ -314,11 +314,35 @@ DCIT 21"></textarea>
         var currentProgram = 'BSCS';
         var allCourses = [];
         var selectedCourses = {};
+        var currentMethod = 'manual';
 
         // Load courses on page load
         window.onload = function() {
             loadCourses();
+            validateInput(); // Initial validation
         };
+
+        // Validate input and enable/disable generate button
+        function validateInput() {
+            var btn = document.getElementById('generateBtn');
+            var isValid = false;
+            
+            if (currentMethod === 'manual') {
+                // For manual: require at least one subject entered
+                var input = document.getElementById('passedInput').value.trim();
+                isValid = input.length > 0;
+            } else {
+                // For select: require at least one subject selected
+                isValid = Object.keys(selectedCourses).length > 0;
+            }
+            
+            btn.disabled = !isValid;
+            if (isValid) {
+                btn.title = 'Click to generate your study plan';
+            } else {
+                btn.title = 'Please enter or select at least one passed subject';
+            }
+        }
 
         function selectProgram(program, btn) {
             currentProgram = program;
@@ -335,6 +359,7 @@ DCIT 21"></textarea>
             updateSelectedTags();
             syncToTextarea();
             loadCourses();
+            validateInput();
         }
 
         function loadCourses() {
@@ -407,12 +432,14 @@ DCIT 21"></textarea>
             }
             updateSelectedTags();
             syncToTextarea();
+            validateInput();
         }
 
         function removeCourse(code) {
             delete selectedCourses[code];
             updateSelectedTags();
             syncToTextarea();
+            validateInput();
             // Update checkbox
             var items = document.querySelectorAll('.checklist-item[data-code="' + code + '"]');
             for (var i = 0; i < items.length; i++) {
@@ -446,6 +473,7 @@ DCIT 21"></textarea>
         }
 
         function switchMethod(method) {
+            currentMethod = method;
             var tabs = document.querySelectorAll('.method-tab');
             var contents = document.querySelectorAll('.method-content');
             
@@ -468,6 +496,7 @@ DCIT 21"></textarea>
                 // Sync from textarea to checkboxes
                 syncFromTextarea();
             }
+            validateInput();
         }
 
         function syncFromTextarea() {
@@ -544,6 +573,7 @@ DCIT 21"></textarea>
             }
             updateSelectedTags();
             syncToTextarea();
+            validateInput();
         }
 
         function deselectAllVisible() {
@@ -559,6 +589,7 @@ DCIT 21"></textarea>
             }
             updateSelectedTags();
             syncToTextarea();
+            validateInput();
         }
 
         function showTab(tabName, btn) {
