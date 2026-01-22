@@ -26,72 +26,50 @@ def query_db(query, args=(), one=False):
 # Home route - serves the HTML page
 @app.route('/')
 def index():
-    # Provide initial data for the index page to render the curriculum
-    # This ensures the page shows data even if the client-side API calls fail
+    # Provide initial data for the page
     program = 'BSCS'
-
-    # Load years
     try:
+        # Load courses
+        results = query_db(f"""
+            SELECT * FROM {program}
+            ORDER BY CASE year_level 
+                WHEN 'First Year' THEN 1
+                WHEN 'Second Year' THEN 2
+                WHEN 'Third Year' THEN 3
+                WHEN 'Fourth Year' THEN 4
+                WHEN 'ELECTIVES' THEN 5
+                ELSE 6
+            END,
+            CASE term 
+                WHEN 'FIRST TRIMESTER' THEN 1
+                WHEN 'SECOND TRIMESTER' THEN 2
+                WHEN 'THIRD TRIMESTER' THEN 3
+                WHEN 'OJT TERM' THEN 4
+                WHEN 'ELECTIVES' THEN 5
+                ELSE 6
+            END,
+            code
+        """)
+        courses = [dict(row) for row in results]
+        
+        # Load years
         years_rows = query_db(f"SELECT DISTINCT year_level FROM {program} ORDER BY CASE year_level WHEN 'First Year' THEN 1 WHEN 'Second Year' THEN 2 WHEN 'Third Year' THEN 3 WHEN 'Fourth Year' THEN 4 WHEN 'ELECTIVES' THEN 5 ELSE 6 END")
         years = [row['year_level'] for row in years_rows]
-    except Exception:
-        years = []
-
-    # Load terms
-    try:
+        
+        # Load terms
         terms_rows = query_db(f"SELECT DISTINCT term FROM {program} ORDER BY CASE term WHEN 'FIRST TRIMESTER' THEN 1 WHEN 'SECOND TRIMESTER' THEN 2 WHEN 'THIRD TRIMESTER' THEN 3 WHEN 'OJT TERM' THEN 4 WHEN 'ELECTIVES' THEN 5 ELSE 6 END")
         terms = [row['term'] for row in terms_rows]
-    except Exception:
-        terms = []
-
-    # Load courses (default: no filters)
-    try:
-        courses_rows = query_db(f"SELECT * FROM {program} ORDER BY code")
-        courses = [dict(r) for r in courses_rows]
-    except Exception:
-        courses = []
-
-    # Load basic stats
-    try:
-        stat_row = query_db(f"SELECT COUNT(*) as total_courses, SUM(lec_units) as total_lec_units, SUM(lab_units) as total_lab_units, SUM(total_units) as total_units FROM {program}", one=True)
-        stats = dict(stat_row) if stat_row else {'total_courses': 0, 'total_lec_units': 0, 'total_lab_units': 0, 'total_units': 0}
-        for k in list(stats.keys()):
-            if stats[k] is None:
-                stats[k] = 0
-    except Exception:
-        stats = {'total_courses': 0, 'total_lec_units': 0, 'total_lab_units': 0, 'total_units': 0}
-
-    # Database info (include table counts)
-    try:
-        import os
-        db_size = os.path.getsize(DATABASE) if os.path.exists(DATABASE) else 0
-        conn = get_db_connection()
-        tables_counts = {}
-        total_records = 0
-        for tbl in ['BSCS', 'BSIS', 'BSIT']:
-            cur = conn.execute(f"SELECT COUNT(*) as cnt FROM {tbl}")
-            cnt = cur.fetchone()['cnt']
-            tables_counts[tbl] = cnt
-            total_records += cnt
-        conn.close()
-        db_info = {
-            'tables': tables_counts,
-            'total_records': total_records,
-            'database_size_kb': round(db_size / 1024, 2),
-            'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        initial_data = {
+            'program': program,
+            'courses': courses,
+            'years': years,
+            'terms': terms
         }
-    except Exception:
-        db_info = {'tables': {}, 'total_records': 0, 'database_size_kb': 0, 'last_updated': ''}
-
-    initial_data = {
-        'program': program,
-        'years': years,
-        'terms': terms,
-        'courses': courses,
-        'stats': stats,
-        'db_info': db_info
-    }
-
+    except Exception as e:
+        print(f"Error loading initial data: {e}")
+        initial_data = {'program': program, 'courses': [], 'years': [], 'terms': []}
+    
     return render_template('index.html', initial_data=initial_data)
 
 # Get all courses for a specific program
@@ -104,31 +82,9 @@ def get_courses(program):
     
     table_name = program.upper()
     
-    # Get query parameters
-    year = request.args.get('year', 'all')
-    term = request.args.get('term', 'all')
-    search = request.args.get('search', '')
-    
-    # Build query
-    query = f"SELECT * FROM {table_name} WHERE 1=1"
-    params = []
-    
-    # Add filters
-    if year and year != 'all':
-        query += " AND year_level = ?"
-        params.append(year)
-    
-    if term and term != 'all':
-        query += " AND term = ?"
-        params.append(term)
-    
-    if search:
-        query += " AND (code LIKE ? OR subject_course LIKE ?)"
-        search_term = f"%{search}%"
-        params.extend([search_term, search_term])
-    
     # Order by year, term, and code
-    query += """
+    query = f"""
+        SELECT * FROM {table_name}
         ORDER BY CASE year_level 
             WHEN 'First Year' THEN 1
             WHEN 'Second Year' THEN 2
@@ -149,67 +105,161 @@ def get_courses(program):
     """
     
     try:
-        results = query_db(query, params)
+        results = query_db(query)
         courses = [dict(row) for row in results]
         return jsonify(courses)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Get statistics for a program
-@app.route('/api/stats/<program>')
-def get_stats(program):
+# Get available subjects based on passed subjects
+@app.route('/api/available-subjects/<program>', methods=['POST'])
+def get_available_subjects(program):
+    # Validate program
     valid_programs = ['BSCS', 'BSIS', 'BSIT']
     if program.upper() not in valid_programs:
         return jsonify({'error': 'Invalid program'}), 400
     
     table_name = program.upper()
     
-    # Get query parameters
-    year = request.args.get('year', 'all')
-    term = request.args.get('term', 'all')
-    search = request.args.get('search', '')
-    
-    # Build query
-    query = f"""
-        SELECT 
-            COUNT(*) as total_courses,
-            SUM(lec_units) as total_lec_units,
-            SUM(lab_units) as total_lab_units,
-            SUM(total_units) as total_units
-        FROM {table_name} 
-        WHERE 1=1
-    """
-    
-    params = []
-    
-    # Add filters
-    if year and year != 'all':
-        query += " AND year_level = ?"
-        params.append(year)
-    
-    if term and term != 'all':
-        query += " AND term = ?"
-        params.append(term)
-    
-    if search:
-        query += " AND (code LIKE ? OR subject_course LIKE ?)"
-        search_term = f"%{search}%"
-        params.extend([search_term, search_term])
+    # Get passed subjects from request body
+    data = request.get_json()
+    passed_subjects = data.get('passed_subjects', [])
+    passed_codes = [s.upper().strip() for s in passed_subjects]
     
     try:
-        result = query_db(query, params, one=True)
-        if result:
-            stats = dict(result)
-            # Convert None to 0
-            for key in stats:
-                if stats[key] is None:
-                    stats[key] = 0
-            return jsonify(stats)
+        # Get all courses
+        results = query_db(f"SELECT * FROM {table_name}")
+        all_courses = [dict(row) for row in results]
+        
+        available = []
+        unavailable = []
+        passed = []
+        
+        for course in all_courses:
+            code = course['code'].upper().strip() if course['code'] else ''
+            prereq = course['prereq'].upper().strip() if course['prereq'] else 'NONE'
+            coreq = course['coreq'].upper().strip() if course['coreq'] else 'NONE'
+            
+            # If already passed
+            if code in passed_codes:
+                course['status'] = 'passed'
+                passed.append(course)
+                continue
+            
+            # Check prerequisites
+            prereq_met = True
+            missing_prereqs = []
+            
+            if prereq and prereq != 'NONE' and prereq != '-' and prereq != 'N/A':
+                # Split prerequisites by common delimiters
+                prereq_list = [p.strip() for p in prereq.replace('&', ',').replace('AND', ',').replace(';', ',').split(',')]
+                prereq_list = [p for p in prereq_list if p and p != 'NONE' and p != '-' and p != 'N/A']
+                
+                for p in prereq_list:
+                    # Handle "or" conditions - if any is passed, prereq is met
+                    if ' OR ' in p.upper():
+                        or_options = [opt.strip() for opt in p.upper().split(' OR ')]
+                        if not any(opt in passed_codes for opt in or_options):
+                            prereq_met = False
+                            missing_prereqs.append(p)
+                    elif p.upper() not in passed_codes:
+                        prereq_met = False
+                        missing_prereqs.append(p)
+            
+            course['missing_prereqs'] = missing_prereqs
+            
+            if prereq_met:
+                course['status'] = 'available'
+                available.append(course)
+            else:
+                course['status'] = 'locked'
+                unavailable.append(course)
+        
+        # Sort available courses by year and term
+        def sort_key(c):
+            year_order = {'First Year': 1, 'Second Year': 2, 'Third Year': 3, 'Fourth Year': 4, 'ELECTIVES': 5}
+            term_order = {'FIRST TRIMESTER': 1, 'SECOND TRIMESTER': 2, 'THIRD TRIMESTER': 3, 'OJT TERM': 4, 'ELECTIVES': 5}
+            return (
+                year_order.get(c.get('year_level', ''), 6),
+                term_order.get(c.get('term', ''), 6),
+                c.get('code', '')
+            )
+        
+        available.sort(key=sort_key)
+        unavailable.sort(key=sort_key)
+        passed.sort(key=sort_key)
+        
+        # Determine the next term based on passed subjects
+        year_order = {'First Year': 1, 'Second Year': 2, 'Third Year': 3, 'Fourth Year': 4, 'ELECTIVES': 5}
+        term_order = {'FIRST TRIMESTER': 1, 'SECOND TRIMESTER': 2, 'THIRD TRIMESTER': 3, 'OJT TERM': 4, 'ELECTIVES': 5}
+        reverse_year = {1: 'First Year', 2: 'Second Year', 3: 'Third Year', 4: 'Fourth Year', 5: 'ELECTIVES'}
+        reverse_term = {1: 'FIRST TRIMESTER', 2: 'SECOND TRIMESTER', 3: 'THIRD TRIMESTER', 4: 'OJT TERM', 5: 'ELECTIVES'}
+        
+        # Find the latest term from passed subjects
+        latest_year = 0
+        latest_term = 0
+        for c in passed:
+            y = year_order.get(c.get('year_level', ''), 0)
+            t = term_order.get(c.get('term', ''), 0)
+            if y > latest_year or (y == latest_year and t > latest_term):
+                latest_year = y
+                latest_term = t
+        
+        # Calculate next term
+        next_year = latest_year
+        next_term = latest_term + 1
+        if next_term > 3:  # After 3rd term, move to next year 1st term
+            next_term = 1
+            next_year = latest_year + 1
+        
+        # If no passed subjects, start with First Year, First Term
+        if latest_year == 0:
+            next_year = 1
+            next_term = 1
+        
+        next_year_name = reverse_year.get(next_year, 'First Year')
+        next_term_name = reverse_term.get(next_term, 'FIRST TRIMESTER')
+        
+        # Filter available subjects that are in the next term (recommended)
+        recommended = []
+        for c in available:
+            c_year = year_order.get(c.get('year_level', ''), 0)
+            c_term = term_order.get(c.get('term', ''), 0)
+            if c_year == next_year and c_term == next_term:
+                recommended.append(c)
+        
+        # Calculate statistics
+        total_passed_units = sum(c.get('total_units', 0) or 0 for c in passed)
+        total_available_units = sum(c.get('total_units', 0) or 0 for c in available)
+        total_curriculum_units = sum(c.get('total_units', 0) or 0 for c in all_courses)
+        recommended_units = sum(c.get('total_units', 0) or 0 for c in recommended)
+        
         return jsonify({
-            'total_courses': 0,
-            'total_lec_units': 0,
-            'total_lab_units': 0,
-            'total_units': 0
+            'available': available,
+            'unavailable': unavailable,
+            'passed': passed,
+            'recommended': recommended,
+            'next_term': {
+                'year': next_year_name,
+                'term': next_term_name,
+                'display': f"{next_year_name} - {next_term_name}"
+            },
+            'current_term': {
+                'year': reverse_year.get(latest_year, 'None'),
+                'term': reverse_term.get(latest_term, 'None')
+            },
+            'stats': {
+                'total_courses': len(all_courses),
+                'passed_count': len(passed),
+                'available_count': len(available),
+                'locked_count': len(unavailable),
+                'recommended_count': len(recommended),
+                'total_passed_units': total_passed_units,
+                'total_available_units': total_available_units,
+                'total_curriculum_units': total_curriculum_units,
+                'recommended_units': recommended_units,
+                'progress_percentage': round((total_passed_units / total_curriculum_units * 100) if total_curriculum_units > 0 else 0, 1)
+            }
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
