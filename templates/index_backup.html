@@ -1,1 +1,756 @@
-<!-- Backup of original index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Academic Study Planner (SASP)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #f5f7fa; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { background: linear-gradient(135deg, #2c3e50, #4a6491); color: white; padding: 25px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
+        header h1 { font-size: 2rem; margin-bottom: 10px; }
+        .section { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .section h2 { color: #2c3e50; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .step-num { background: #3498db; color: white; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; }
+        .program-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+        .program-btn { padding: 15px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; transition: all 0.3s; }
+        .program-btn.bscs { background: #3498db; color: white; }
+        .program-btn.bsis { background: #2ecc71; color: white; }
+        .program-btn.bsit { background: #e74c3c; color: white; }
+        .program-btn.active { transform: scale(1.05); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .program-btn:hover { opacity: 0.9; }
+        textarea { width: 100%; min-height: 150px; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; margin-bottom: 10px; }
+        textarea:focus { outline: none; border-color: #3498db; }
+        .help-text { background: #e3f2fd; padding: 10px 15px; border-radius: 6px; color: #1976d2; font-size: 0.9rem; }
+        .generate-btn { background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; padding: 15px 30px; font-size: 1.1rem; font-weight: 600; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 15px; }
+        .generate-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(46,204,113,0.4); }
+        .generate-btn:disabled { background: #95a5a6; cursor: not-allowed; transform: none; }
+        #results { display: none; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; border-left: 4px solid #3498db; }
+        .stat-card.passed { border-left-color: #27ae60; }
+        .stat-card.available { border-left-color: #3498db; }
+        .stat-card.locked { border-left-color: #e74c3c; }
+        .stat-card h3 { color: #7f8c8d; font-size: 0.85rem; margin-bottom: 5px; }
+        .stat-card .value { font-size: 2rem; font-weight: 700; color: #2c3e50; }
+        .progress-bar { background: #e9ecef; border-radius: 20px; height: 30px; overflow: hidden; margin-bottom: 20px; }
+        .progress-fill { height: 100%; background: linear-gradient(135deg, #27ae60, #2ecc71); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; transition: width 0.5s; min-width: 50px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 20px; border: none; background: #e9ecef; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .tab-btn.active { background: #2c3e50; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #2c3e50; color: white; padding: 12px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        tr:hover { background: #f8f9fa; }
+        .available-row { background: #e8f5e9; }
+        .passed-row { background: #e3f2fd; }
+        .locked-row { background: #ffebee; }
+        .missing { color: #e74c3c; font-weight: 500; }
+        .loading { text-align: center; padding: 40px; display: none; }
+        .loading i { font-size: 2rem; color: #3498db; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        footer { text-align: center; color: #7f8c8d; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+        .error { background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
+        
+        /* Recommendation Box */
+        .recommendation-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 25px; margin-bottom: 25px; color: white; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
+        .recommendation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .recommendation-header h3 { margin: 0; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
+        .recommendation-header h3 i { color: #ffd700; }
+        .next-term-badge { background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.95rem; backdrop-filter: blur(5px); }
+        .recommendation-subtitle { opacity: 0.9; margin-bottom: 15px; font-size: 0.95rem; }
+        .recommended-stats { display: flex; gap: 25px; margin-bottom: 15px; }
+        .recommended-stats span { display: flex; align-items: center; gap: 8px; font-size: 1rem; }
+        .recommended-table { background: white; border-radius: 8px; overflow: hidden; }
+        .recommended-table th { background: #2c3e50; color: white; padding: 12px 15px; text-align: left; font-weight: 600; }
+        .recommended-table td { padding: 12px 15px; color: #2c3e50; border-bottom: 1px solid #eee; }
+        .recommended-table tr:last-child td { border-bottom: none; }
+        .recommended-table tr:hover { background: #f8f9fa; }
+        .recommended-table .code-cell { font-weight: 700; color: #667eea; }
+        .no-recommendations { text-align: center; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 8px; }
+        
+        /* Input Method Tabs */
+        .method-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .method-tab { padding: 12px 20px; border: none; background: #e9ecef; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .method-tab:hover { background: #dee2e6; }
+        .method-tab.active { background: #3498db; color: white; }
+        .method-content { display: none; }
+        .method-content.active { display: block; }
+        
+        /* Select from List */
+        .filter-row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-weight: 600; font-size: 0.9rem; color: #2c3e50; }
+        .filter-group select, .filter-group input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-width: 180px; }
+        .btn-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .small-btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; background: #3498db; color: white; }
+        .small-btn:hover { background: #2980b9; }
+        .small-btn.secondary { background: #95a5a6; }
+        .small-btn.secondary:hover { background: #7f8c8d; }
+        
+        /* Checklist */
+        .checklist { max-height: 400px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; background: white; }
+        .checklist-header { background: #2c3e50; color: white; padding: 10px 15px; font-weight: 600; position: sticky; top: 0; z-index: 2; }
+        .checklist-term { background: #ecf0f1; color: #7f8c8d; padding: 8px 15px; font-size: 0.9rem; font-weight: 600; position: sticky; top: 38px; z-index: 1; }
+        .checklist-item { display: flex; align-items: center; padding: 10px 15px; gap: 12px; cursor: pointer; border-bottom: 1px solid #f5f5f5; }
+        .checklist-item:hover { background: #f8f9fa; }
+        .checklist-item.checked { background: #e8f5e9; }
+        .checklist-item input { width: 18px; height: 18px; cursor: pointer; }
+        .checklist-item .code { font-weight: 600; color: #2c3e50; min-width: 80px; }
+        .checklist-item .name { flex: 1; color: #555; }
+        .checklist-item .units { font-size: 0.85rem; color: #95a5a6; }
+        
+        /* Selected tags */
+        .selected-panel { background: #f8f9fa; border-radius: 8px; padding: 15px; margin-top: 15px; }
+        .selected-panel h4 { color: #2c3e50; margin-bottom: 10px; }
+        .selected-tags { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; }
+        .tag { display: inline-flex; align-items: center; gap: 6px; background: #3498db; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.9rem; }
+        .tag button { background: none; border: none; color: white; cursor: pointer; padding: 0; font-size: 1rem; }
+        .tag button:hover { opacity: 0.8; }
+        .empty-msg { color: #95a5a6; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-graduation-cap"></i> Student Academic Study Planner</h1>
+            <p>Plan your next term subjects based on courses you've passed</p>
+        </header>
+
+        <div class="error" id="errorMsg"></div>
+
+        <div class="section">
+            <h2><span class="step-num">1</span> Select Your Program</h2>
+            <div class="program-btns">
+                <button class="program-btn bscs active" onclick="selectProgram('BSCS', this)">
+                    <i class="fas fa-laptop-code"></i> BSCS - Computer Science
+                </button>
+                <button class="program-btn bsis" onclick="selectProgram('BSIS', this)">
+                    <i class="fas fa-database"></i> BSIS - Information Systems
+                </button>
+                <button class="program-btn bsit" onclick="selectProgram('BSIT', this)">
+                    <i class="fas fa-network-wired"></i> BSIT - Information Technology
+                </button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2><span class="step-num">2</span> Enter Subjects You've Passed</h2>
+            
+            <!-- Method Tabs -->
+            <div class="method-tabs">
+                <button class="method-tab active" onclick="switchMethod('manual')">
+                    <i class="fas fa-keyboard"></i> Manual Input
+                </button>
+                <button class="method-tab" onclick="switchMethod('select')">
+                    <i class="fas fa-list-ul"></i> Select from List
+                </button>
+            </div>
+            
+            <!-- Manual Input Method -->
+            <div id="method-manual" class="method-content active">
+                <textarea id="passedInput" placeholder="Enter course codes you've passed (one per line or comma-separated)
+
+Example:
+GE111
+GE112
+COSC 50
+DCIT 21" oninput="validateInput()"></textarea>
+                <div class="help-text">
+                    <i class="fas fa-info-circle"></i> Enter the course codes of subjects you have already passed to see available subjects for the next term.
+                </div>
+            </div>
+            
+            <!-- Select from List Method -->
+            <div id="method-select" class="method-content">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label><i class="fas fa-calendar"></i> Year</label>
+                        <select id="filter-year" onchange="filterCourses()">
+                            <option value="">All Years</option>
+                            <option value="First Year">1st Year</option>
+                            <option value="Second Year">2nd Year</option>
+                            <option value="Third Year">3rd Year</option>
+                            <option value="Fourth Year">4th Year</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fas fa-calendar-alt"></i> Term</label>
+                        <select id="filter-term" onchange="filterCourses()">
+                            <option value="">All Terms</option>
+                            <option value="FIRST TRIMESTER">1st Term</option>
+                            <option value="SECOND TRIMESTER">2nd Term</option>
+                            <option value="THIRD TRIMESTER">3rd Term</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fas fa-search"></i> Search</label>
+                        <input type="text" id="filter-search" placeholder="Search courses..." oninput="filterCourses()">
+                    </div>
+                </div>
+                
+                <div class="btn-row">
+                    <button class="small-btn" onclick="selectAllVisible()"><i class="fas fa-check-double"></i> Select All Visible</button>
+                    <button class="small-btn secondary" onclick="deselectAllVisible()"><i class="fas fa-times"></i> Deselect All Visible</button>
+                </div>
+                
+                <div id="checklist" class="checklist">
+                    <p style="padding: 20px; text-align: center; color: #7f8c8d;">Loading courses...</p>
+                </div>
+                
+                <div class="selected-panel">
+                    <h4><i class="fas fa-check-circle"></i> Selected Subjects (<span id="selected-count">0</span>)</h4>
+                    <div id="selected-tags" class="selected-tags">
+                        <span class="empty-msg">No subjects selected yet</span>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="generate-btn" id="generateBtn" onclick="generatePlan()">
+                <i class="fas fa-magic"></i> Generate Study Plan
+            </button>
+        </div>
+
+        <div class="loading" id="loading">
+            <i class="fas fa-spinner"></i>
+            <p>Analyzing your curriculum...</p>
+        </div>
+
+        <div class="section" id="results">
+            <h2><span class="step-num">3</span> Your Study Plan Results</h2>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar" style="width: 0%;">0%</div>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card passed">
+                    <h3><i class="fas fa-check-circle"></i> Passed</h3>
+                    <div class="value" id="passedCount">0</div>
+                </div>
+                <div class="stat-card available">
+                    <h3><i class="fas fa-unlock"></i> Available</h3>
+                    <div class="value" id="availableCount">0</div>
+                </div>
+                <div class="stat-card locked">
+                    <h3><i class="fas fa-lock"></i> Locked</h3>
+                    <div class="value" id="lockedCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3><i class="fas fa-book"></i> Total</h3>
+                    <div class="value" id="totalCount">0</div>
+                </div>
+            </div>
+
+            <!-- RECOMMENDED FOR NEXT TERM - NEW SECTION -->
+            <div class="recommendation-box" id="recommendationBox">
+                <div class="recommendation-header">
+                    <h3><i class="fas fa-star"></i> Recommended for Next Term</h3>
+                    <div class="next-term-badge" id="nextTermBadge">Loading...</div>
+                </div>
+                <p class="recommendation-subtitle">Based on your passed subjects, you can take these courses next term:</p>
+                <div class="recommended-stats">
+                    <span><i class="fas fa-book-open"></i> <strong id="recommendedCount">0</strong> subjects</span>
+                    <span><i class="fas fa-graduation-cap"></i> <strong id="recommendedUnits">0</strong> units</span>
+                </div>
+                <table class="recommended-table">
+                    <thead>
+                        <tr><th>Code</th><th>Subject</th><th>Prerequisite</th><th>Units</th></tr>
+                    </thead>
+                    <tbody id="recommendedBody"></tbody>
+                </table>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('available', this)">
+                    <i class="fas fa-unlock"></i> All Available (<span id="availableTab">0</span>)
+                </button>
+                <button class="tab-btn" onclick="showTab('passed', this)">
+                    <i class="fas fa-check"></i> Passed (<span id="passedTab">0</span>)
+                </button>
+                <button class="tab-btn" onclick="showTab('locked', this)">
+                    <i class="fas fa-lock"></i> Locked (<span id="lockedTab">0</span>)
+                </button>
+            </div>
+
+            <div class="tab-content active" id="availableContent">
+                <table>
+                    <thead>
+                        <tr><th>Year</th><th>Term</th><th>Code</th><th>Subject</th><th>Prerequisite</th><th>Units</th></tr>
+                    </thead>
+                    <tbody id="availableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="tab-content" id="passedContent">
+                <table>
+                    <thead>
+                        <tr><th>Year</th><th>Term</th><th>Code</th><th>Subject</th><th>Units</th></tr>
+                    </thead>
+                    <tbody id="passedBody"></tbody>
+                </table>
+            </div>
+
+            <div class="tab-content" id="lockedContent">
+                <table>
+                    <thead>
+                        <tr><th>Year</th><th>Term</th><th>Code</th><th>Subject</th><th>Missing Prerequisites</th><th>Units</th></tr>
+                    </thead>
+                    <tbody id="lockedBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <footer>
+            <p>Student Academic Study Planner (SASP) &copy; 2026</p>
+        </footer>
+    </div>
+
+    <script>
+        var currentProgram = 'BSCS';
+        var allCourses = [];
+        var selectedCourses = {};
+        var currentMethod = 'manual';
+
+        // Load courses on page load
+        window.onload = function() {
+            loadCourses();
+            validateInput(); // Initial validation
+        };
+
+        // Validate input and enable/disable generate button
+        function validateInput() {
+            var btn = document.getElementById('generateBtn');
+            var isValid = false;
+            
+            if (currentMethod === 'manual') {
+                // For manual: require at least one subject entered
+                var input = document.getElementById('passedInput').value.trim();
+                isValid = input.length > 0;
+            } else {
+                // For select: require at least one subject selected
+                isValid = Object.keys(selectedCourses).length > 0;
+            }
+            
+            btn.disabled = !isValid;
+            if (isValid) {
+                btn.title = 'Click to generate your study plan';
+            } else {
+                btn.title = 'Please enter or select at least one passed subject';
+            }
+        }
+
+        function selectProgram(program, btn) {
+            currentProgram = program;
+            var btns = document.querySelectorAll('.program-btn');
+            for (var i = 0; i < btns.length; i++) {
+                btns[i].classList.remove('active');
+            }
+            btn.classList.add('active');
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('errorMsg').style.display = 'none';
+            
+            // Reset selections when changing program
+            selectedCourses = {};
+            updateSelectedTags();
+            syncToTextarea();
+            loadCourses();
+            validateInput();
+        }
+
+        function loadCourses() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/courses/' + currentProgram, true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        allCourses = JSON.parse(xhr.responseText);
+                        renderChecklist();
+                    } catch (e) {
+                        console.error('Error parsing courses:', e);
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function renderChecklist() {
+            var checklist = document.getElementById('checklist');
+            if (!allCourses || allCourses.length === 0) {
+                checklist.innerHTML = '<p style="padding: 20px; text-align: center; color: #7f8c8d;">No courses found</p>';
+                return;
+            }
+
+            // Group by year and term
+            var grouped = {};
+            for (var i = 0; i < allCourses.length; i++) {
+                var c = allCourses[i];
+                var year = c.year_level || '?';
+                var term = c.term || '?';
+                var key = 'Year ' + year + ' - ' + term + ' Term';
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(c);
+            }
+
+            var html = '';
+            for (var groupKey in grouped) {
+                html += '<div class="checklist-header" data-group="' + groupKey + '">' + groupKey + '</div>';
+                var courses = grouped[groupKey];
+                for (var j = 0; j < courses.length; j++) {
+                    var c = courses[j];
+                    var code = c.code || '';
+                    var name = c.subject_course || '';
+                    var units = c.total_units || 0;
+                    var year = c.year_level || '';
+                    var term = c.term || '';
+                    var checked = selectedCourses[code] ? 'checked' : '';
+                    var itemClass = selectedCourses[code] ? 'checklist-item checked' : 'checklist-item';
+                    
+                    html += '<div class="' + itemClass + '" data-code="' + code + '" data-year="' + year + '" data-term="' + term + '" data-name="' + name + '">' +
+                        '<input type="checkbox" ' + checked + ' onclick="toggleCourse(\'' + code + '\', this)">' +
+                        '<span class="code">' + code + '</span>' +
+                        '<span class="name">' + name + '</span>' +
+                        '<span class="units">' + units + ' units</span>' +
+                        '</div>';
+                }
+            }
+            checklist.innerHTML = html;
+            filterCourses();
+        }
+
+        function toggleCourse(code, checkbox) {
+            if (checkbox.checked) {
+                selectedCourses[code] = true;
+                checkbox.parentElement.classList.add('checked');
+            } else {
+                delete selectedCourses[code];
+                checkbox.parentElement.classList.remove('checked');
+            }
+            updateSelectedTags();
+            syncToTextarea();
+            validateInput();
+        }
+
+        function removeCourse(code) {
+            delete selectedCourses[code];
+            updateSelectedTags();
+            syncToTextarea();
+            validateInput();
+            // Update checkbox
+            var items = document.querySelectorAll('.checklist-item[data-code="' + code + '"]');
+            for (var i = 0; i < items.length; i++) {
+                items[i].classList.remove('checked');
+                var cb = items[i].querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = false;
+            }
+        }
+
+        function updateSelectedTags() {
+            var tagsContainer = document.getElementById('selected-tags');
+            var countEl = document.getElementById('selected-count');
+            var codes = Object.keys(selectedCourses);
+            countEl.textContent = codes.length;
+            
+            if (codes.length === 0) {
+                tagsContainer.innerHTML = '<span class="empty-msg">No subjects selected yet</span>';
+            } else {
+                var html = '';
+                for (var i = 0; i < codes.length; i++) {
+                    var code = codes[i];
+                    html += '<span class="tag">' + code + '<button onclick="removeCourse(\'' + code + '\')">&times;</button></span>';
+                }
+                tagsContainer.innerHTML = html;
+            }
+        }
+
+        function syncToTextarea() {
+            var codes = Object.keys(selectedCourses);
+            document.getElementById('passedInput').value = codes.join('\n');
+        }
+
+        function switchMethod(method) {
+            currentMethod = method;
+            var tabs = document.querySelectorAll('.method-tab');
+            var contents = document.querySelectorAll('.method-content');
+            
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+            for (var i = 0; i < contents.length; i++) {
+                contents[i].classList.remove('active');
+            }
+            
+            // Find and activate the correct tab and content
+            if (method === 'manual') {
+                tabs[0].classList.add('active');
+                document.getElementById('method-manual').classList.add('active');
+                // Sync from checkboxes to textarea
+                syncToTextarea();
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('method-select').classList.add('active');
+                // Sync from textarea to checkboxes
+                syncFromTextarea();
+            }
+            validateInput();
+        }
+
+        function syncFromTextarea() {
+            var input = document.getElementById('passedInput').value;
+            var lines = input.split(/[,\n]/);
+            selectedCourses = {};
+            for (var i = 0; i < lines.length; i++) {
+                var code = lines[i].trim().toUpperCase();
+                if (code) {
+                    selectedCourses[code] = true;
+                }
+            }
+            updateSelectedTags();
+            // Update checkboxes
+            var items = document.querySelectorAll('.checklist-item');
+            for (var i = 0; i < items.length; i++) {
+                var itemCode = items[i].getAttribute('data-code');
+                var cb = items[i].querySelector('input[type="checkbox"]');
+                if (selectedCourses[itemCode]) {
+                    items[i].classList.add('checked');
+                    if (cb) cb.checked = true;
+                } else {
+                    items[i].classList.remove('checked');
+                    if (cb) cb.checked = false;
+                }
+            }
+        }
+
+        function filterCourses() {
+            var yearFilter = document.getElementById('filter-year').value;
+            var termFilter = document.getElementById('filter-term').value;
+            var searchFilter = document.getElementById('filter-search').value.toLowerCase();
+
+            var items = document.querySelectorAll('.checklist-item');
+            var headers = document.querySelectorAll('.checklist-header');
+            var visibleGroups = {};
+
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var year = item.getAttribute('data-year');
+                var term = item.getAttribute('data-term');
+                var code = item.getAttribute('data-code').toLowerCase();
+                var name = item.getAttribute('data-name').toLowerCase();
+                
+                var yearMatch = !yearFilter || year === yearFilter;
+                var termMatch = !termFilter || term === termFilter;
+                var searchMatch = !searchFilter || code.indexOf(searchFilter) >= 0 || name.indexOf(searchFilter) >= 0;
+                
+                if (yearMatch && termMatch && searchMatch) {
+                    item.style.display = 'flex';
+                    visibleGroups['Year ' + year + ' - ' + term + ' Term'] = true;
+                } else {
+                    item.style.display = 'none';
+                }
+            }
+
+            // Show/hide headers based on visible items
+            for (var i = 0; i < headers.length; i++) {
+                var groupName = headers[i].getAttribute('data-group');
+                headers[i].style.display = visibleGroups[groupName] ? 'block' : 'none';
+            }
+        }
+
+        function selectAllVisible() {
+            var items = document.querySelectorAll('.checklist-item');
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].style.display !== 'none') {
+                    var code = items[i].getAttribute('data-code');
+                    selectedCourses[code] = true;
+                    items[i].classList.add('checked');
+                    var cb = items[i].querySelector('input[type="checkbox"]');
+                    if (cb) cb.checked = true;
+                }
+            }
+            updateSelectedTags();
+            syncToTextarea();
+            validateInput();
+        }
+
+        function deselectAllVisible() {
+            var items = document.querySelectorAll('.checklist-item');
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].style.display !== 'none') {
+                    var code = items[i].getAttribute('data-code');
+                    delete selectedCourses[code];
+                    items[i].classList.remove('checked');
+                    var cb = items[i].querySelector('input[type="checkbox"]');
+                    if (cb) cb.checked = false;
+                }
+            }
+            updateSelectedTags();
+            syncToTextarea();
+            validateInput();
+        }
+
+        function showTab(tabName, btn) {
+            var tabBtns = document.querySelectorAll('.tab-btn');
+            var tabContents = document.querySelectorAll('.tab-content');
+            for (var i = 0; i < tabBtns.length; i++) {
+                tabBtns[i].classList.remove('active');
+            }
+            for (var i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            btn.classList.add('active');
+            document.getElementById(tabName + 'Content').classList.add('active');
+        }
+
+        function showError(msg) {
+            var errorEl = document.getElementById('errorMsg');
+            errorEl.textContent = msg;
+            errorEl.style.display = 'block';
+        }
+
+        function generatePlan() {
+            var input = document.getElementById('passedInput').value;
+            var lines = input.split(/[,\n]/);
+            var passedSubjects = [];
+            for (var i = 0; i < lines.length; i++) {
+                var s = lines[i].trim().toUpperCase();
+                if (s) passedSubjects.push(s);
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('errorMsg').style.display = 'none';
+            document.getElementById('generateBtn').disabled = true;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/available-subjects/' + currentProgram, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            
+            xhr.onload = function() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+                
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.error) {
+                            showError('Error: ' + data.error);
+                        } else {
+                            displayResults(data);
+                        }
+                    } catch (e) {
+                        showError('Error parsing response: ' + e.message);
+                    }
+                } else {
+                    showError('Server error: ' + xhr.status + ' - ' + xhr.statusText);
+                }
+            };
+            
+            xhr.onerror = function() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+                showError('Network error - Could not connect to server. Make sure the Flask server is running.');
+            };
+            
+            xhr.send(JSON.stringify({ passed_subjects: passedSubjects }));
+        }
+
+        function displayResults(data) {
+            var stats = data.stats;
+            
+            document.getElementById('passedCount').textContent = stats.passed_count;
+            document.getElementById('availableCount').textContent = stats.available_count;
+            document.getElementById('lockedCount').textContent = stats.locked_count;
+            document.getElementById('totalCount').textContent = stats.total_courses;
+            
+            document.getElementById('availableTab').textContent = stats.available_count;
+            document.getElementById('passedTab').textContent = stats.passed_count;
+            document.getElementById('lockedTab').textContent = stats.locked_count;
+            
+            var progressBar = document.getElementById('progressBar');
+            progressBar.style.width = stats.progress_percentage + '%';
+            progressBar.textContent = stats.progress_percentage + '% Complete';
+
+            // RECOMMENDED FOR NEXT TERM
+            document.getElementById('nextTermBadge').textContent = data.next_term ? data.next_term.display : 'Next Term';
+            document.getElementById('recommendedCount').textContent = stats.recommended_count || 0;
+            document.getElementById('recommendedUnits').textContent = stats.recommended_units || 0;
+            
+            var recommendedHtml = '';
+            if (data.recommended && data.recommended.length > 0) {
+                for (var i = 0; i < data.recommended.length; i++) {
+                    var c = data.recommended[i];
+                    recommendedHtml += '<tr>' +
+                        '<td class="code-cell">' + (c.code || '') + '</td>' +
+                        '<td>' + (c.subject_course || '') + '</td>' +
+                        '<td>' + (c.prereq || 'NONE') + '</td>' +
+                        '<td>' + (c.total_units || 0) + '</td></tr>';
+                }
+            } else {
+                recommendedHtml = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No recommended subjects for next term. You may have completed all subjects for this term or prerequisites are not yet met.</td></tr>';
+            }
+            document.getElementById('recommendedBody').innerHTML = recommendedHtml;
+
+            // Available table
+            var availableHtml = '';
+            if (data.available.length > 0) {
+                for (var i = 0; i < data.available.length; i++) {
+                    var c = data.available[i];
+                    availableHtml += '<tr class="available-row">' +
+                        '<td>' + (c.year_level || '') + '</td>' +
+                        '<td>' + (c.term || '') + '</td>' +
+                        '<td><strong>' + (c.code || '') + '</strong></td>' +
+                        '<td>' + (c.subject_course || '') + '</td>' +
+                        '<td>' + (c.prereq || 'NONE') + '</td>' +
+                        '<td>' + (c.total_units || 0) + '</td></tr>';
+                }
+            } else {
+                availableHtml = '<tr><td colspan="6" style="text-align:center;color:#999;">No available subjects</td></tr>';
+            }
+            document.getElementById('availableBody').innerHTML = availableHtml;
+
+            // Passed table
+            var passedHtml = '';
+            if (data.passed.length > 0) {
+                for (var i = 0; i < data.passed.length; i++) {
+                    var c = data.passed[i];
+                    passedHtml += '<tr class="passed-row">' +
+                        '<td>' + (c.year_level || '') + '</td>' +
+                        '<td>' + (c.term || '') + '</td>' +
+                        '<td><strong>' + (c.code || '') + '</strong></td>' +
+                        '<td>' + (c.subject_course || '') + '</td>' +
+                        '<td>' + (c.total_units || 0) + '</td></tr>';
+                }
+            } else {
+                passedHtml = '<tr><td colspan="5" style="text-align:center;color:#999;">No passed subjects entered</td></tr>';
+            }
+            document.getElementById('passedBody').innerHTML = passedHtml;
+
+            // Locked table
+            var lockedHtml = '';
+            if (data.unavailable.length > 0) {
+                for (var i = 0; i < data.unavailable.length; i++) {
+                    var c = data.unavailable[i];
+                    var missing = c.missing_prereqs ? c.missing_prereqs.join(', ') : c.prereq;
+                    lockedHtml += '<tr class="locked-row">' +
+                        '<td>' + (c.year_level || '') + '</td>' +
+                        '<td>' + (c.term || '') + '</td>' +
+                        '<td><strong>' + (c.code || '') + '</strong></td>' +
+                        '<td>' + (c.subject_course || '') + '</td>' +
+                        '<td class="missing">' + missing + '</td>' +
+                        '<td>' + (c.total_units || 0) + '</td></tr>';
+                }
+            } else {
+                lockedHtml = '<tr><td colspan="6" style="text-align:center;color:#999;">All subjects available!</td></tr>';
+            }
+            document.getElementById('lockedBody').innerHTML = lockedHtml;
+
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
