@@ -1,0 +1,575 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITCSIS Curriculum Database Viewer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-graduation-cap"></i> ITCSIS Curriculum Database Viewer</h1>
+            <p>Connected to SQLite database. Browse and explore the complete curriculum for BSCS, BSIS, and BSIT programs.</p>
+        </header>
+
+        <div class="database-info" id="database-info">
+            <div>
+                <i class="fas fa-database"></i> 
+                <span>Connected to: curriculum.db</span>
+            </div>
+            <div>
+                <i class="fas fa-circle" style="color: #2ecc71;"></i> 
+                <span>Database Online</span>
+            </div>
+            <div class="table-counts" id="table-counts">
+                <!-- Table counts will be loaded here -->
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <i class="fas fa-spinner"></i>
+            <p>Loading curriculum data from database...</p>
+        </div>
+
+        <div class="courses-selector">
+            <button class="course-btn bscs active" data-course="BSCS">
+                <i class="fas fa-laptop-code"></i> BSCS - Computer Science
+            </button>
+            <button class="course-btn bsis" data-course="BSIS">
+                <i class="fas fa-database"></i> BSIS - Information Systems
+            </button>
+            <button class="course-btn bsit" data-course="BSIT">
+                <i class="fas fa-network-wired"></i> BSIT - Information Technology
+            </button>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="year-filter"><i class="fas fa-calendar-alt"></i> Year Level</label>
+                <select id="year-filter">
+                    <option value="all">All Year Levels</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="term-filter"><i class="fas fa-layer-group"></i> Term</label>
+                <select id="term-filter">
+                    <option value="all">All Terms</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="search-input"><i class="fas fa-search"></i> Search Courses</label>
+                <input type="text" id="search-input" placeholder="Enter course code or subject...">
+            </div>
+
+            <button id="reset-filters" class="course-btn" style="background-color: #95a5a6; color: white; align-self: flex-end;">
+                <i class="fas fa-redo"></i> Reset Filters
+            </button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Courses</h3>
+                <div class="value" id="total-courses">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Lecture Units</h3>
+                <div class="value" id="lecture-units">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Laboratory Units</h3>
+                <div class="value" id="lab-units">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Units</h3>
+                <div class="value" id="total-units">0</div>
+            </div>
+        </div>
+
+        <div class="curriculum-table-container">
+            <table id="curriculum-table">
+                <thead>
+                    <tr>
+                        <th>Year Level</th>
+                        <th>Term</th>
+                        <th>Code</th>
+                        <th>Subject Course</th>
+                        <th>Prerequisite</th>
+                        <th>Corequisite</th>
+                        <th>Lec</th>
+                        <th>Lab</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Curriculum data will be inserted here -->
+                </tbody>
+            </table>
+            <div id="no-results" class="no-results" style="display: none;">
+                <i class="fas fa-search fa-2x" style="margin-bottom: 15px;"></i>
+                <h3>No courses found</h3>
+                <p>Try adjusting your filters or search term</p>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e8f4fc;"></div>
+                <span>First Trimester</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e8f8f0;"></div>
+                <span>Second Trimester</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #fde8e8;"></div>
+                <span>Third Trimester</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #f5f0ff;"></div>
+                <span>Electives</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #fff8e1;"></div>
+                <span>OJT Term</span>
+            </div>
+        </div>
+
+        <footer>
+            <p>ITCSIS Curriculum Database Viewer &copy; 2024 | Powered by Flask & SQLite</p>
+            <p style="font-size: 0.8rem; margin-top: 5px;">Last updated: <span id="last-updated">-</span></p>
+        </footer>
+    </div>
+
+    <script id="initial-data" type="application/json">{{ initial_data|tojson|safe }}</script>
+    <script>
+        // Configuration
+        const API_BASE_URL = window.location.origin;
+        // Fallback API host (used when primary origin fails)
+        const FALLBACK_API_BASE = 'http://127.0.0.1:5001';
+        // Server-provided initial data (parse safely)
+        let INITIAL_DATA = null;
+        try {
+            const initialDataEl = document.getElementById('initial-data');
+            if (initialDataEl && initialDataEl.textContent) {
+                INITIAL_DATA = JSON.parse(initialDataEl.textContent);
+                console.log('INITIAL_DATA loaded:', INITIAL_DATA);
+            }
+        } catch (e) {
+            console.error('Failed to parse INITIAL_DATA:', e);
+        }
+        window.INITIAL_DATA = INITIAL_DATA;
+        
+        let currentCourse = "BSCS";
+        let yearOptions = [];
+        let termOptions = [];
+
+        // DOM Elements
+        const courseButtons = document.querySelectorAll('.courses-selector .course-btn');
+        const yearFilter = document.getElementById('year-filter');
+        const termFilter = document.getElementById('term-filter');
+        const searchInput = document.getElementById('search-input');
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        const tableBody = document.getElementById('table-body');
+        const noResults = document.getElementById('no-results');
+        const loadingElement = document.getElementById('loading');
+        const totalCoursesEl = document.getElementById('total-courses');
+        const lectureUnitsEl = document.getElementById('lecture-units');
+        const labUnitsEl = document.getElementById('lab-units');
+        const totalUnitsEl = document.getElementById('total-units');
+        const tableCountsEl = document.getElementById('table-counts');
+        const lastUpdatedEl = document.getElementById('last-updated');
+
+        // Show loading indicator
+        function showLoading() {
+            loadingElement.style.display = 'block';
+        }
+
+        // Hide loading indicator
+        function hideLoading() {
+            loadingElement.style.display = 'none';
+        }
+
+        // Fetch data from API
+        async function fetchData(endpoint) {
+            // Try primary origin first, then fallback to FALLBACK_API_BASE if available
+            const primaryUrl = `${API_BASE_URL}${endpoint}`;
+            const fallbackUrl = `${FALLBACK_API_BASE}${endpoint}`;
+
+            // Try primary
+            try {
+                let response = await fetch(primaryUrl);
+                if (response.ok) {
+                    return await response.json();
+                }
+                // if primary returned 404/other, try fallback
+                console.warn(`Primary API ${primaryUrl} returned ${response.status}, trying fallback...`);
+            } catch (err) {
+                console.warn(`Primary API ${primaryUrl} failed: ${err}. Trying fallback...`);
+            }
+
+            // Try fallback
+            try {
+                const response2 = await fetch(fallbackUrl);
+                if (!response2.ok) throw new Error(`HTTP error! status: ${response2.status}`);
+                return await response2.json();
+            } catch (error) {
+                console.error('Error fetching data from fallback:', error);
+                showError(`Error loading data: ${error.message}`);
+                return null;
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = `
+                background-color: #f8d7da;
+                color: #721c24;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 10px 0;
+                border: 1px solid #f5c6cb;
+            `;
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.database-info').nextSibling);
+            
+            // Remove error after 5 seconds
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.parentNode.removeChild(errorDiv);
+                }
+            }, 5000);
+        }
+
+        // Initialize the application
+        async function init() {
+            console.log('init() called, INITIAL_DATA:', window.INITIAL_DATA);
+            
+            try {
+                // If the server injected initial data, use it to populate the UI
+                if (window.INITIAL_DATA && window.INITIAL_DATA.courses && window.INITIAL_DATA.courses.length > 0) {
+                    const data = window.INITIAL_DATA;
+                    console.log('Using server-injected data');
+                    
+                    // Database info
+                    if (data.db_info && data.db_info.tables) {
+                        tableCountsEl.innerHTML = '';
+                        for (const [table, count] of Object.entries(data.db_info.tables)) {
+                            const countDiv = document.createElement('div');
+                            countDiv.className = 'table-count';
+                            countDiv.innerHTML = `<strong>${table}:</strong> ${count} courses`;
+                            tableCountsEl.appendChild(countDiv);
+                        }
+                        if (data.db_info.last_updated) lastUpdatedEl.textContent = data.db_info.last_updated;
+                    }
+
+                    // Year and term options
+                    if (data.years && data.years.length > 0) {
+                        yearOptions = data.years.filter(y => y !== null);
+                        updateYearFilter();
+                    }
+                    if (data.terms && data.terms.length > 0) {
+                        termOptions = data.terms.filter(t => t !== null);
+                        updateTermFilter();
+                    }
+
+                    // Courses and stats
+                    if (data.courses) {
+                        renderTable(data.courses);
+                    }
+                    if (data.stats) {
+                        updateStats(data.stats);
+                    }
+
+                    hideLoading();
+                } else {
+                    console.log('No INITIAL_DATA, loading from API');
+                    // Fallback: load data from API endpoints
+                    await loadDatabaseInfo();
+                    await loadYearOptions('BSCS');
+                    await loadTermOptions('BSCS');
+                    await loadCourseData('BSCS');
+                    await loadStats('BSCS');
+                    hideLoading();
+                }
+            } catch (err) {
+                console.error('init() error:', err);
+                hideLoading();
+                showError('Failed to initialize: ' + err.message);
+            }
+            
+            // Add event listeners
+            courseButtons.forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    // Remove active class from all buttons
+                    courseButtons.forEach(b => b.classList.remove('active'));
+                    // Add active class to clicked button
+                    btn.classList.add('active');
+                    
+                    // Update current course
+                    currentCourse = btn.dataset.course;
+                    
+                    showLoading();
+                    
+                    // Load new data for selected course
+                    await loadYearOptions(currentCourse);
+                    await loadTermOptions(currentCourse);
+                    await loadCourseData(currentCourse);
+                    await loadStats(currentCourse);
+                    
+                    hideLoading();
+                });
+            });
+            
+            yearFilter.addEventListener('change', () => {
+                loadCourseData(currentCourse);
+                loadStats(currentCourse);
+            });
+            
+            termFilter.addEventListener('change', () => {
+                loadCourseData(currentCourse);
+                loadStats(currentCourse);
+            });
+            
+            // Add debounce to search input
+            let searchTimeout;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    loadCourseData(currentCourse);
+                    loadStats(currentCourse);
+                }, 300); // 300ms delay
+            });
+            
+            resetFiltersBtn.addEventListener('click', resetFilters);
+            
+            // Auto-refresh database info every 30 seconds
+            setInterval(loadDatabaseInfo, 30000);
+        }
+
+        // Load database information
+        async function loadDatabaseInfo() {
+            const data = await fetchData('/api/db-info');
+            if (data && !data.error) {
+                // Update table counts
+                tableCountsEl.innerHTML = '';
+                for (const [table, count] of Object.entries(data.tables)) {
+                    const countDiv = document.createElement('div');
+                    countDiv.className = 'table-count';
+                    countDiv.innerHTML = `<strong>${table}:</strong> ${count} courses`;
+                    tableCountsEl.appendChild(countDiv);
+                }
+                
+                // Update last updated time
+                if (data.last_updated) {
+                    lastUpdatedEl.textContent = data.last_updated;
+                }
+            }
+        }
+
+        // Load year options for a program
+        async function loadYearOptions(program) {
+            const data = await fetchData(`/api/years/${program}`);
+            if (data && !data.error) {
+                yearOptions = data;
+                updateYearFilter();
+            }
+        }
+
+        // Load term options for a program
+        async function loadTermOptions(program) {
+            const data = await fetchData(`/api/terms/${program}`);
+            if (data && !data.error) {
+                termOptions = data;
+                updateTermFilter();
+            }
+        }
+
+        // Update year filter dropdown
+        function updateYearFilter() {
+            yearFilter.innerHTML = '<option value="all">All Year Levels</option>';
+            yearOptions.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearFilter.appendChild(option);
+            });
+        }
+
+        // Update term filter dropdown
+        function updateTermFilter() {
+            termFilter.innerHTML = '<option value="all">All Terms</option>';
+            termOptions.forEach(term => {
+                const option = document.createElement('option');
+                option.value = term;
+                option.textContent = term;
+                termFilter.appendChild(option);
+            });
+        }
+
+        // Load course data
+        async function loadCourseData(program) {
+            const yearValue = yearFilter.value;
+            const termValue = termFilter.value;
+            const searchValue = searchInput.value;
+            
+            let url = `/api/courses/${program}`;
+            const params = new URLSearchParams();
+            
+            if (yearValue && yearValue !== 'all') params.append('year', yearValue);
+            if (termValue && termValue !== 'all') params.append('term', termValue);
+            if (searchValue) params.append('search', searchValue);
+            
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+            
+            const data = await fetchData(url);
+            if (data !== null && !data.error) {
+                renderTable(data);
+            }
+        }
+
+        // Load statistics
+        async function loadStats(program) {
+            const yearValue = yearFilter.value;
+            const termValue = termFilter.value;
+            const searchValue = searchInput.value;
+            
+            let url = `/api/stats/${program}`;
+            const params = new URLSearchParams();
+            
+            if (yearValue && yearValue !== 'all') params.append('year', yearValue);
+            if (termValue && termValue !== 'all') params.append('term', termValue);
+            if (searchValue) params.append('search', searchValue);
+            
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+            
+            const data = await fetchData(url);
+            if (data && !data.error) {
+                updateStats(data);
+            }
+        }
+
+        // Render table with data
+        function renderTable(data) {
+            if (!data || data.length === 0) {
+                tableBody.innerHTML = '';
+                noResults.style.display = 'block';
+                return;
+            }
+            
+            noResults.style.display = 'none';
+            
+            let html = '';
+            data.forEach(course => {
+                // Handle null values
+                const term = course.term || '';
+                const yearLevel = course.year_level || '';
+                const code = course.code || '';
+                const subjectCourse = course.subject_course || '';
+                const prereq = course.prereq || 'NONE';
+                const coreq = course.coreq || 'NONE';
+                const lecUnits = course.lec_units || 0;
+                const labUnits = course.lab_units || 0;
+                const totalUnits = course.total_units || 0;
+                
+                // Determine term badge class
+                let termBadgeClass = '';
+                if (term.includes('FIRST')) termBadgeClass = 'first-term';
+                else if (term.includes('SECOND')) termBadgeClass = 'second-term';
+                else if (term.includes('THIRD')) termBadgeClass = 'third-term';
+                else if (term.includes('ELECTIVES')) termBadgeClass = 'electives-term';
+                else if (term.includes('OJT')) termBadgeClass = 'ojt-term';
+                
+                html += `
+                    <tr>
+                        <td><span class="year-level-badge">${yearLevel}</span></td>
+                        <td><span class="term-badge ${termBadgeClass}">${term}</span></td>
+                        <td class="code-cell">${code}</td>
+                        <td class="subject-cell">${subjectCourse}</td>
+                        <td class="prereq-cell">${prereq}</td>
+                        <td class="prereq-cell">${coreq}</td>
+                        <td class="units-cell">${lecUnits}</td>
+                        <td class="units-cell">${labUnits}</td>
+                        <td class="units-cell">${totalUnits}</td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = html;
+        }
+
+        // Update statistics
+        function updateStats(data) {
+            totalCoursesEl.textContent = data.total_courses || 0;
+            lectureUnitsEl.textContent = data.total_lec_units || 0;
+            labUnitsEl.textContent = data.total_lab_units || 0;
+            totalUnitsEl.textContent = data.total_units || 0;
+        }
+
+        // Reset all filters
+        function resetFilters() {
+            yearFilter.value = 'all';
+            termFilter.value = 'all';
+            searchInput.value = '';
+            loadCourseData(currentCourse);
+            loadStats(currentCourse);
+        }
+
+        // Export data as CSV
+        async function exportToCSV() {
+            const data = await fetchData(`/api/courses/${currentCourse}`);
+            if (!data || data.error) return;
+            
+            const headers = ['Year Level', 'Term', 'Code', 'Subject Course', 'Prerequisite', 'Corequisite', 'Lec Units', 'Lab Units', 'Total Units'];
+            const csvRows = [
+                headers.join(','),
+                ...data.map(course => [
+                    `"${course.year_level}"`,
+                    `"${course.term}"`,
+                    `"${course.code}"`,
+                    `"${course.subject_course}"`,
+                    `"${course.prereq}"`,
+                    `"${course.coreq}"`,
+                    course.lec_units,
+                    course.lab_units,
+                    course.total_units
+                ].join(','))
+            ];
+            
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `${currentCourse}_curriculum_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Initialize the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Add export button dynamically
+        document.addEventListener('DOMContentLoaded', () => {
+            const exportBtn = document.createElement('button');
+            exportBtn.className = 'course-btn';
+            exportBtn.style.cssText = 'background-color: #9b59b6; color: white; align-self: flex-end;';
+            exportBtn.innerHTML = '<i class="fas fa-file-export"></i> Export CSV';
+            exportBtn.onclick = exportToCSV;
+            document.querySelector('.filters').appendChild(exportBtn);
+        });
+    </script>
+</body>
+</html>
